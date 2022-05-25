@@ -64,10 +64,33 @@ data segment
 ;The following String is CLI(Command Line Interface)&code
     coc01 db "NLTech CreateFile (16-bit)"
     coc02 db "Version:0.0.1_dev_alpha"
+    coc03 db "Console:"
 
 ;The following value is the length of each CLI word
     coc01_len equ 0026d
     coc02_len equ 0023d
+    coc03_len equ 0008d
+
+;The following String is Console
+    con01 db "you can type in 'h' for help"
+
+;The following value is the length of each Console word
+    con01_len equ 0028d
+
+;The following String is Console elp Message and code
+
+    che01 db "(h)help"
+    che02 db "(l)list"
+    che03 db "(q)quit"
+    che04 db "(f)File Check"
+
+;The following value is the length of each Help word
+
+    che01_len equ 0007d
+    che02_len equ 0007d
+    che03_len equ 0007d
+    che04_len equ 0013d
+
 
 data ends
 
@@ -86,7 +109,21 @@ main:
     mov ss,ax
     mov sp,0014h    ;protect the stack
     call Stack_Protect
+
+    mov bx,OFFSET coc01    ;adr pointer
+    mov dh,0002h    ;color pointer
+    mov bp,0036h    ;position pointer
+    mov cx,coc01_len
     call Direct_String_Opt
+
+    mov bx,OFFSET coc02
+    mov bp,00a0h
+    mov cx,coc02_len
+    call Direct_String_Opt
+
+    call Key_In
+
+
     mov ax,4c00h
     int 21h
 
@@ -104,7 +141,7 @@ Stack_Protect proc
     ;
     ;       sp_Restore:
     ;           This Function set your
-    ;           SP Registr to 0014H
+    ;           SP Registr to 0014h
     ;           which is the original
     ;           value of stack pointer
     ;
@@ -133,9 +170,140 @@ Stack_Protect endp
 
 Direct_String_Opt proc
 
+    ;- Direct_String_Opt ----------------
+    ;Description:
+    ;   This Function print the character
+    ;   in the current ds:[bx] directly 
+    ;   on the screen.
+    ;
+    ;Registr Using:
+    ;   This Function accept parameter in
+    ;   the following registers
+    ;
+    ;   |-BX:String address pointer
+    ;   |
+    ;   |-CX:character counter
+    ;   |
+    ;   |-DH:color pointer
+    ;   |
+    ;   |-BP:screen position pointer
+    ;
+    ;------------------------------------
+
+    push ax
+    mov ax,0b800h
+    mov es,ax
+
+    l0:
+        mov al,ds:[bx]
+        mov ah,dh
+        mov es:[bp],ax
+        add bp,0002h    ;next screen position
+        inc bx          ;next character address
+
+    loop l0
+
+    pop ax
+
     ret
 
 Direct_String_Opt endp
+
+Key_In proc
+
+    mov ah,01h
+    int 21h
+    cmp al,0dh  ;The ascii code of enter
+    jz Key_Restore
+    jnz Key_Next
+    
+    Key_Restore:
+        ret
+
+    Key_Next:
+        cmp  al,0063h   ;compare with 'c'
+        jz Command_Console
+        push ax
+        call Stack_Protect  ;check stack
+        jmp Key_In
+
+Key_In endp
+
+Command_Console proc
+
+;----------------------------------------
+;Description:
+;       This is the entrance of the
+;       cf console.
+;
+;----------------------------------------
+
+    mov bx,offset coc03
+    mov cx,coc03_len
+    mov bp,0140h
+    mov dh,0bh
+    call Direct_String_Opt
+
+    mov bx,OFFSET con01
+    mov cx,con01_len
+    mov bp,01e0h
+    mov dh,04h
+    call Direct_String_Opt
+    
+    call Console_In
+    ret
+
+Command_Console endp
+
+Console_In proc
+    
+    mov cx,0000h    ;initialize counter
+    mov ah,01h
+    int 21h
+    cmp al,0071h      ;'q' to quit
+    jz Console_Quit
+    cmp al,0068h      ;'h' to quit
+    jz Console_Help
+    jnz Char_Save
+
+    Char_Save:
+        
+        push ax
+        call Stack_Protect
+        add sp,2
+        call Console_In
+
+    Console_Quit:
+        
+        mov ax,4c00h
+        int 21h
+
+    Console_Help:
+        
+        mov bx,offset che01
+        mov cx,che01_len
+        mov dh,0ah
+        mov bp,0280h
+        call Direct_String_Opt
+
+        mov bx,offset che02
+        mov cx,che02_len
+        mov bp,0290h
+        call Direct_String_Opt
+
+        mov bx,offset che03
+        mov cx,che03_len
+        mov bp,02a0h
+        call Direct_String_Opt
+
+        mov bx,offset che04
+        mov cx,che04_len
+        mov bp,02b0h
+        call Direct_String_Opt
+
+        call Console_In
+
+Console_In endp
 
 code ends
 
